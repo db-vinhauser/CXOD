@@ -7,7 +7,7 @@ from scrapy_splash import SplashRequest
 class EOL_University_List_Spider(scrapy.Spider):
     name = "eol_universty_province_score"
 
-    def __init__(self, name=None, **kwargs):
+    def __init__(self, name=None, province='', **kwargs):
         super().__init__(name, **kwargs)
         self.province_score = []
         self.counter = {}
@@ -20,6 +20,7 @@ class EOL_University_List_Spider(scrapy.Spider):
         self.batches = {10036: '一批', 10037: '二批', 10038: '三批', 10148: '专科', 10149: '本科提前批', 10162: '普通类提前批',
                         10154: '本科批', 10155: '专科批', 10158: '专科提前批'}
         self.university_list = pd.read_csv('university.csv')
+        self.prov = int(province)
 
     def start_requests(self):
         self.script = """
@@ -37,14 +38,13 @@ class EOL_University_List_Spider(scrapy.Spider):
         end
         """
         for idx, row in self.university_list.iterrows():
-            for pid, province in self.provinces.items():
-                for sid, subject in self.subjects.items():
-                    for bid, batch in self.batches.items():
-                        url = 'https://gkcx.eol.cn/schoolhtm/schoolAreaPoint/%d/%d/%d/%d.htm' % (
-                        row['uid'], pid, sid, bid)
+            for sid, subject in self.subjects.items():
+                for bid, batch in self.batches.items():
+                    url = 'https://gkcx.eol.cn/schoolhtm/schoolAreaPoint/%d/%d/%d/%d.htm' % (
+                        row['uid'], self.prov, sid, bid)
 
-                        yield SplashRequest(url=url, callback=self.parse,
-                                            args={'lua_source': self.script}, endpoint='execute')
+                    yield SplashRequest(url=url, callback=self.parse,
+                                        args={'lua_source': self.script}, endpoint='execute')
 
     def parse(self, response):
         htmlparser = etree.HTMLParser()
@@ -91,4 +91,4 @@ class EOL_University_List_Spider(scrapy.Spider):
         df = pd.DataFrame(data=self.province_score,
                           columns=['uid', 'pid', 'province', 'sid', 'subject', 'bid', 'batch', 'year', 'score_max',
                                    'score_avg', 'score_min', 'score_province_control'])
-        df.to_csv('university_province_score.csv')
+        df.to_csv('university_province_score.%d.csv' % self.prov)
